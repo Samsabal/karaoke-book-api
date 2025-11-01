@@ -1,4 +1,4 @@
-# Karaoke Book API (Salon Tropica)
+# Karaoke Book API
 
 Minimal FastAPI service to import a VirtualDJ catalog, normalize metadata for a karaoke book, and expose simple query and maintenance endpoints.
 
