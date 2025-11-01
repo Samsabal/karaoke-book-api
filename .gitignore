@@ -1,0 +1,16 @@
+# virtual env
+.venv/
+# Python
+__pycache__/
+*.pyc
+# local DB
+karaoke.db
+database.xml
+# env and secrets
+.env
+.env.*
+# editor
+.vscode/
+.idea/
+# OS
+Thumbs.db
