@@ -3,10 +3,13 @@ from app.services.parser import parse_filename
 
 def validate_song_metadata(song: dict) -> dict:
     """
-    Resolve artist and title metadata for an imported VirtualDJ song.
+    Resolve artist/title metadata and assign a confidence score.
 
-    VirtualDJ tags are preferred when both artist and title exist.
-    Otherwise, the filename parser is used as a fallback.
+    Confidence:
+        1.00 = complete VirtualDJ artist/title tags
+        0.70 = filename parsed with a catalogue code
+        0.50 = filename parsed without a catalogue code
+        0.00 = unresolved
     """
 
     tagged_artist = _clean(song.get("artist"))
@@ -18,6 +21,7 @@ def validate_song_metadata(song: dict) -> dict:
             "title": tagged_title,
             "catalogue": None,
             "metadata_source": "virtualdj_tags",
+            "confidence": 1.0,
             "needs_validation": False,
         }
 
@@ -26,11 +30,14 @@ def validate_song_metadata(song: dict) -> dict:
     )
 
     if parsed["parse_success"]:
+        has_catalogue = bool(parsed["catalogue"])
+
         return {
             "artist": parsed["artist"],
             "title": parsed["title"],
             "catalogue": parsed["catalogue"],
             "metadata_source": "filename",
+            "confidence": 0.7 if has_catalogue else 0.5,
             "needs_validation": True,
         }
 
@@ -39,6 +46,7 @@ def validate_song_metadata(song: dict) -> dict:
         "title": tagged_title,
         "catalogue": None,
         "metadata_source": "unresolved",
+        "confidence": 0.0,
         "needs_validation": True,
     }
 
