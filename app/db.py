@@ -12,8 +12,14 @@ engine = create_engine(
 
 def init_db() -> None:
     """
-    Create all database tables registered with SQLModel.
+    Import all SQLModel table models and create their database tables.
     """
+
+    # Import models here so SQLModel knows about them
+    # before create_all() is called.
+    from app.models.song import Song
+    from app.models.song_version import SongVersion
+
     SQLModel.metadata.create_all(engine)
 
 
