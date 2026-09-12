@@ -1,7 +1,7 @@
 from pathlib import Path, PureWindowsPath
 import xml.etree.ElementTree as ET
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.models.song import Song
 from app.models.song_version import SongVersion
@@ -162,13 +162,11 @@ def import_song(session: Session, song_data: dict) -> SongVersion | None:
     if not artist or not title or not filepath:
         return None
 
-    song = Song(
+    song = _find_or_create_song(
+        session=session,
         artist=artist,
         title=title,
     )
-
-    session.add(song)
-    session.flush()
 
     song_version = SongVersion(
         song_id=song.id,
@@ -187,3 +185,36 @@ def import_song(session: Session, song_data: dict) -> SongVersion | None:
     session.refresh(song_version)
 
     return song_version
+
+def _find_or_create_song(
+    session: Session,
+    artist: str,
+    title: str,
+) -> Song:
+    """
+    Find an existing logical Song or create a new one.
+
+    Matching is currently case-insensitive for artist and title.
+    """
+
+    songs = session.exec(select(Song)).all()
+
+    artist_key = artist.casefold()
+    title_key = title.casefold()
+
+    for song in songs:
+        if (
+            song.artist.casefold() == artist_key
+            and song.title.casefold() == title_key
+        ):
+            return song
+
+    song = Song(
+        artist=artist,
+        title=title,
+    )
+
+    session.add(song)
+    session.flush()
+
+    return song
