@@ -100,7 +100,6 @@ def read_virtualdj_database(database_path: str) -> list[dict]:
 
     return songs
 
-
 def _get_attribute(
     element: ET.Element | None,
     attribute: str,
@@ -117,7 +116,6 @@ def _get_attribute(
 
     return value or None
 
-
 def _to_int(
     value: str | None,
     default: int | None = None,
@@ -129,7 +127,6 @@ def _to_int(
         return int(value)
     except (TypeError, ValueError):
         return default
-
 
 def _to_float(
     value: str | None,
@@ -143,23 +140,39 @@ def _to_float(
     except (TypeError, ValueError):
         return default
 
-def import_song(session: Session, song_data: dict) -> SongVersion | None:
+def import_song(
+    session: Session,
+    song_data: dict,
+) -> SongVersion | None:
     """
     Import one VirtualDJ song into the application database.
 
-    Returns the created SongVersion.
+    If the same VirtualDJ filepath has already been imported,
+    the existing SongVersion is returned.
 
     If required metadata cannot currently be resolved,
-    the song is skipped and None is returned.
+    the record is skipped and None is returned.
     """
+
+    filepath = song_data.get("filepath")
+
+    if not filepath:
+        return None
+
+    existing_version = _find_existing_song_version(
+        session=session,
+        filepath=filepath,
+    )
+
+    if existing_version:
+        return existing_version
 
     validated = validate_song_metadata(song_data)
 
     artist = validated["artist"]
     title = validated["title"]
-    filepath = song_data.get("filepath")
 
-    if not artist or not title or not filepath:
+    if not artist or not title:
         return None
 
     song = _find_or_create_song(
@@ -229,3 +242,18 @@ def _normalize(value: str) -> str:
     """
 
     return " ".join(value.casefold().split())
+
+def _find_existing_song_version(
+    session: Session,
+    filepath: str,
+) -> SongVersion | None:
+    """
+    Find an already imported VirtualDJ file by its filepath.
+    """
+
+    statement = select(SongVersion).where(
+        SongVersion.filepath == filepath,
+        SongVersion.source == "virtualdj",
+    )
+
+    return session.exec(statement).first()
