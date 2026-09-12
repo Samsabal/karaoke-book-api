@@ -184,6 +184,8 @@ def import_song(
         song_cache=song_cache,
     )
 
+    play_count = song_data.get("play_count") or 0
+
     song_version = SongVersion(
         song_id=song.id,
         filepath=filepath,
@@ -191,9 +193,11 @@ def import_song(
         file_type=song_data.get("file_type"),
         filesize=song_data.get("filesize"),
         duration_seconds=song_data.get("duration_seconds"),
-        play_count=song_data.get("play_count", 0),
+        play_count=play_count,
         source="virtualdj",
     )
+
+    song.play_count += play_count
 
     session.add(song_version)
 
@@ -207,6 +211,7 @@ def import_songs(
     session: Session,
     songs: list[dict],
     batch_size: int = 500,
+    played_only: bool = False,
 ) -> dict:
     """
     Import multiple VirtualDJ songs into the application database.
@@ -224,6 +229,10 @@ def import_songs(
 
     for song_data in songs:
         processed += 1
+
+        if played_only and (song_data.get("play_count") or 0) <= 0:
+          skipped += 1
+          continue
 
         result = import_song(
             session=session,
