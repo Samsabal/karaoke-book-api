@@ -194,27 +194,38 @@ def _find_or_create_song(
     """
     Find an existing logical Song or create a new one.
 
-    Matching is currently case-insensitive for artist and title.
+    Matching uses normalized artist and title values so the database
+    can perform the lookup instead of loading every Song into Python.
     """
 
-    songs = session.exec(select(Song)).all()
+    normalized_artist = _normalize(artist)
+    normalized_title = _normalize(title)
 
-    artist_key = artist.casefold()
-    title_key = title.casefold()
+    statement = select(Song).where(
+        Song.normalized_artist == normalized_artist,
+        Song.normalized_title == normalized_title,
+    )
 
-    for song in songs:
-        if (
-            song.artist.casefold() == artist_key
-            and song.title.casefold() == title_key
-        ):
-            return song
+    song = session.exec(statement).first()
+
+    if song:
+        return song
 
     song = Song(
         artist=artist,
         title=title,
+        normalized_artist=normalized_artist,
+        normalized_title=normalized_title,
     )
 
     session.add(song)
     session.flush()
 
     return song
+
+def _normalize(value: str) -> str:
+    """
+    Normalize artist/title text for logical song matching.
+    """
+
+    return " ".join(value.casefold().split())
