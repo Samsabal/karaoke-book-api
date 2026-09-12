@@ -1,6 +1,11 @@
 from pathlib import Path, PureWindowsPath
 import xml.etree.ElementTree as ET
 
+from sqlmodel import Session
+
+from app.models.song import Song
+from app.models.song_version import SongVersion
+from app.services.validator import validate_song_metadata
 
 def read_virtualdj_database(database_path: str) -> list[dict]:
     """
@@ -137,3 +142,48 @@ def _to_float(
         return float(value)
     except (TypeError, ValueError):
         return default
+
+def import_song(session: Session, song_data: dict) -> SongVersion | None:
+    """
+    Import one VirtualDJ song into the application database.
+
+    Returns the created SongVersion.
+
+    If required metadata cannot currently be resolved,
+    the song is skipped and None is returned.
+    """
+
+    validated = validate_song_metadata(song_data)
+
+    artist = validated["artist"]
+    title = validated["title"]
+    filepath = song_data.get("filepath")
+
+    if not artist or not title or not filepath:
+        return None
+
+    song = Song(
+        artist=artist,
+        title=title,
+    )
+
+    session.add(song)
+    session.flush()
+
+    song_version = SongVersion(
+        song_id=song.id,
+        filepath=filepath,
+        filename=song_data.get("filename") or "",
+        file_type=song_data.get("file_type"),
+        filesize=song_data.get("filesize"),
+        duration_seconds=song_data.get("duration_seconds"),
+        play_count=song_data.get("play_count", 0),
+        source="virtualdj",
+    )
+
+    session.add(song_version)
+    session.commit()
+
+    session.refresh(song_version)
+
+    return song_version
