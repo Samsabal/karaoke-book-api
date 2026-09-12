@@ -25,5 +25,7 @@ class Song(SQLModel, table=True):
 
     language: Optional[str] = Field(default=None, index=True)
 
+    play_count: int = Field(default=0, index=True)
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
