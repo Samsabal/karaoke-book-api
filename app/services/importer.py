@@ -143,6 +143,7 @@ def _to_float(
 def import_song(
     session: Session,
     song_data: dict,
+    commit: bool = True,
 ) -> SongVersion | None:
     """
     Import one VirtualDJ song into the application database.
@@ -193,11 +194,54 @@ def import_song(
     )
 
     session.add(song_version)
-    session.commit()
 
-    session.refresh(song_version)
+    if commit:
+        session.commit()
+        session.refresh(song_version)
 
     return song_version
+
+def import_songs(
+    session: Session,
+    songs: list[dict],
+    batch_size: int = 500,
+) -> dict:
+    """
+    Import multiple VirtualDJ songs into the application database.
+
+    Songs are committed in batches for better performance.
+
+    Returns import statistics.
+    """
+
+    processed = 0
+    imported = 0
+    skipped = 0
+
+    for song_data in songs:
+        processed += 1
+
+        result = import_song(
+            session=session,
+            song_data=song_data,
+            commit=False,
+        )
+
+        if result is None:
+            skipped += 1
+        else:
+            imported += 1
+
+        if processed % batch_size == 0:
+            session.commit()
+
+    session.commit()
+
+    return {
+        "processed": processed,
+        "imported": imported,
+        "skipped": skipped,
+    }
 
 def _find_or_create_song(
     session: Session,
