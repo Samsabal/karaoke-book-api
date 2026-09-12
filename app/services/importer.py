@@ -144,6 +144,7 @@ def import_song(
     session: Session,
     song_data: dict,
     commit: bool = True,
+    song_cache: dict[tuple[str, str], Song] | None = None,
 ) -> SongVersion | None:
     """
     Import one VirtualDJ song into the application database.
@@ -180,6 +181,7 @@ def import_song(
         session=session,
         artist=artist,
         title=title,
+        song_cache=song_cache,
     )
 
     song_version = SongVersion(
@@ -218,6 +220,8 @@ def import_songs(
     imported = 0
     skipped = 0
 
+    song_cache: dict[tuple[str, str], Song] = {}
+
     for song_data in songs:
         processed += 1
 
@@ -225,6 +229,7 @@ def import_songs(
             session=session,
             song_data=song_data,
             commit=False,
+            song_cache=song_cache,
         )
 
         if result is None:
@@ -247,16 +252,24 @@ def _find_or_create_song(
     session: Session,
     artist: str,
     title: str,
+    song_cache: dict[tuple[str, str], Song] | None = None,
 ) -> Song:
     """
     Find an existing logical Song or create a new one.
 
-    Matching uses normalized artist and title values so the database
-    can perform the lookup instead of loading every Song into Python.
+    Matching uses normalized artist and title values.
     """
 
     normalized_artist = _normalize(artist)
     normalized_title = _normalize(title)
+
+    key = (
+        normalized_artist,
+        normalized_title,
+    )
+
+    if song_cache is not None and key in song_cache:
+        return song_cache[key]
 
     statement = select(Song).where(
         Song.normalized_artist == normalized_artist,
@@ -266,6 +279,9 @@ def _find_or_create_song(
     song = session.exec(statement).first()
 
     if song:
+        if song_cache is not None:
+            song_cache[key] = song
+
         return song
 
     song = Song(
@@ -277,6 +293,9 @@ def _find_or_create_song(
 
     session.add(song)
     session.flush()
+
+    if song_cache is not None:
+        song_cache[key] = song
 
     return song
 
