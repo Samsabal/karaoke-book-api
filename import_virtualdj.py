@@ -21,6 +21,12 @@ def main() -> None:
         help="Only import the first N VirtualDJ records.",
     )
 
+    parser.add_argument(
+        "--played-only",
+        action="store_true",
+        help="Only import songs with play_count greater than 0.",
+    )
+
     args = parser.parse_args()
 
     print("Reading database.xml...")
@@ -32,6 +38,9 @@ def main() -> None:
 
     print(f"VirtualDJ records selected: {len(songs)}")
 
+    if args.played_only:
+        print("Filter: play_count > 0")
+
     init_db()
 
     with Session(engine) as session:
@@ -39,6 +48,7 @@ def main() -> None:
             session=session,
             songs=songs,
             batch_size=500,
+            played_only=args.played_only,
         )
 
     print()
