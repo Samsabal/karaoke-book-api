@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Salon Tropica Karaoke</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            color: #222;
+        }
+
+        header {
+            background: #111;
+            color: white;
+            padding: 24px 32px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 26px;
+        }
+
+        header p {
+            margin: 6px 0 0;
+            color: #bbb;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+        }
+
+        .stat-value {
+            font-size: 30px;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            margin-top: 6px;
+            color: #666;
+        }
+
+        .library {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+        }
+
+        .library h2 {
+            margin-top: 0;
+        }
+
+        .search {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            color: #666;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+
+        .plays {
+            width: 100px;
+            text-align: right;
+        }
+
+        @media (max-width: 700px) {
+            main {
+                padding: 16px;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            header {
+                padding: 20px 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Salon Tropica Karaoke</h1>
+    <p>Karaoke library dashboard</p>
+</header>
+
+<main>
+
+    <section class="stats">
+        <div class="card">
+            <div class="stat-value">6,002</div>
+            <div class="stat-label">Songs</div>
+        </div>
+
+        <div class="card">
+            <div class="stat-value">6,584</div>
+            <div class="stat-label">Versions</div>
+        </div>
+
+        <div class="card">
+            <div class="stat-value">37,564</div>
+            <div class="stat-label">Plays</div>
+        </div>
+    </section>
+
+    <section class="library">
+        <h2>Most played songs</h2>
+
+        <input
+            class="search"
+            type="search"
+            placeholder="Search artist or song..."
+            disabled
+        >
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Artist</th>
+                    <th>Title</th>
+                    <th class="plays">Plays</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <tr>
+                    <td>Johnny</td>
+                    <td>Het Vrolijke Kosterlied</td>
+                    <td class="plays">684</td>
+                </tr>
+
+                <tr>
+                    <td>Claudia de Breij</td>
+                    <td>Mag ik dan bij jou</td>
+                    <td class="plays">654</td>
+                </tr>
+
+                <tr>
+                    <td>Django Wagner / The Rosenberg Trio</td>
+                    <td>Kali karaoke</td>
+                    <td class="plays">388</td>
+                </tr>
+
+                <tr>
+                    <td>Natasha Bedingfield</td>
+                    <td>Unwritten</td>
+                    <td class="plays">351</td>
+                </tr>
+
+                <tr>
+                    <td>Backstreet Boys</td>
+                    <td>I Want It That Way</td>
+                    <td class="plays">330</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+</main>
+
+</body>
+</html>
