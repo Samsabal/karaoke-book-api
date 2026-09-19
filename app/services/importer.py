@@ -145,6 +145,7 @@ def import_song(
     song_data: dict,
     commit: bool = True,
     song_cache: dict[tuple[str, str], Song] | None = None,
+    filepath_cache: set[str] | None = None,
 ) -> SongVersion | None:
     """
     Import one VirtualDJ song into the application database.
@@ -161,13 +162,20 @@ def import_song(
     if not filepath:
         return None
 
-    existing_version = _find_existing_song_version(
-        session=session,
-        filepath=filepath,
-    )
+    if filepath_cache is not None:
+        if filepath in filepath_cache:
+            return _find_existing_song_version(
+                session=session,
+                filepath=filepath,
+            )
+    else:
+        existing_version = _find_existing_song_version(
+            session=session,
+            filepath=filepath,
+        )
 
-    if existing_version:
-        return existing_version
+        if existing_version:
+            return existing_version
 
     validated = validate_song_metadata(song_data)
 
@@ -201,6 +209,9 @@ def import_song(
 
     session.add(song_version)
 
+    if filepath_cache is not None:
+        filepath_cache.add(filepath)
+
     if commit:
         session.commit()
         session.refresh(song_version)
@@ -227,6 +238,14 @@ def import_songs(
 
     song_cache: dict[tuple[str, str], Song] = {}
 
+    existing_filepaths = session.exec(
+        select(SongVersion.filepath).where(
+            SongVersion.source == "virtualdj"
+        )
+    ).all()
+
+    filepath_cache = set(existing_filepaths)
+
     for song_data in songs:
         processed += 1
 
@@ -239,6 +258,7 @@ def import_songs(
             song_data=song_data,
             commit=False,
             song_cache=song_cache,
+            filepath_cache=filepath_cache,
         )
 
         if result is None:
