@@ -134,17 +134,17 @@
 
     <section class="stats">
         <div class="card">
-            <div class="stat-value">6,002</div>
+            <div class="stat-value" id="song-count">-</div>
             <div class="stat-label">Songs</div>
         </div>
 
         <div class="card">
-            <div class="stat-value">6,584</div>
+            <div class="stat-value" id="version-count">—</div>
             <div class="stat-label">Versions</div>
         </div>
 
         <div class="card">
-            <div class="stat-value">37,564</div>
+            <div class="stat-value" id="play-count">—</div>
             <div class="stat-label">Plays</div>
         </div>
     </section>
@@ -168,41 +168,80 @@
                 </tr>
             </thead>
 
-            <tbody>
-                <tr>
-                    <td>Johnny</td>
-                    <td>Het Vrolijke Kosterlied</td>
-                    <td class="plays">684</td>
-                </tr>
-
-                <tr>
-                    <td>Claudia de Breij</td>
-                    <td>Mag ik dan bij jou</td>
-                    <td class="plays">654</td>
-                </tr>
-
-                <tr>
-                    <td>Django Wagner / The Rosenberg Trio</td>
-                    <td>Kali karaoke</td>
-                    <td class="plays">388</td>
-                </tr>
-
-                <tr>
-                    <td>Natasha Bedingfield</td>
-                    <td>Unwritten</td>
-                    <td class="plays">351</td>
-                </tr>
-
-                <tr>
-                    <td>Backstreet Boys</td>
-                    <td>I Want It That Way</td>
-                    <td class="plays">330</td>
-                </tr>
+            <tbody id="song-table">
+              <tr>
+                <td colspan="3">Loading songs...</td>
+              </tr>
             </tbody>
         </table>
     </section>
 
 </main>
+<script>
+    async function loadLibrary() {
+        const table = document.getElementById("song-table");
 
+        try {
+            const response = await fetch("/api/library/songs?limit=100");
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const songs = await response.json();
+
+            const totalPlays = songs.reduce(
+                (total, song) => total + song.play_count,
+                0
+            );
+
+            document.getElementById("song-count").textContent =
+                songs.length.toLocaleString();
+
+            document.getElementById("play-count").textContent =
+                totalPlays.toLocaleString();
+
+            table.innerHTML = "";
+
+            for (const song of songs) {
+                const row = document.createElement("tr");
+
+                const artist = document.createElement("td");
+                artist.textContent = song.artist;
+
+                const title = document.createElement("td");
+                title.textContent = song.title;
+
+                const plays = document.createElement("td");
+                plays.className = "plays";
+                plays.textContent = song.play_count.toLocaleString();
+
+                row.appendChild(artist);
+                row.appendChild(title);
+                row.appendChild(plays);
+
+                table.appendChild(row);
+            }
+
+            if (songs.length === 0) {
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="3">No songs found.</td>
+                    </tr>
+                `;
+            }
+        } catch (error) {
+            console.error(error);
+
+            table.innerHTML = `
+                <tr>
+                    <td colspan="3">Could not load the karaoke library.</td>
+                </tr>
+            `;
+        }
+    }
+
+    loadLibrary();
+</script>
 </body>
 </html>
