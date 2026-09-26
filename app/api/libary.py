@@ -14,19 +14,33 @@ router = APIRouter(
 @router.get("/songs", response_model=list[Song])
 def get_songs(
     limit: int = 100,
+    search: str | None = None,
     session: Session = Depends(get_session),
 ):
     """
     Return logical karaoke songs ordered by play count.
 
-    The most-played songs are returned first.
+    Optionally search by artist or title.
     """
 
     limit = max(1, min(limit, 500))
 
+    statement = select(Song)
+
+    if search:
+        search = search.strip()
+
+        if search:
+            pattern = f"%{search}%"
+
+            statement = statement.where(
+                (Song.artist.ilike(pattern)) # pylint: disable=no-member
+                | (Song.title.ilike(pattern)) # pylint: disable=no-member
+            )
+
     statement = (
-        select(Song)
-        .order_by(Song.play_count.desc())
+        statement
+        .order_by(Song.play_count.desc()) # pylint: disable=no-member
         .limit(limit)
     )
 
