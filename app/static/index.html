@@ -154,9 +154,10 @@
 
         <input
             class="search"
+            id="song-search"
             type="search"
             placeholder="Search artist or song..."
-            disabled
+            autocomplete="off"
         >
 
         <table>
@@ -203,11 +204,27 @@
     }
 
 
-    async function loadLibrary() {
+    async function loadLibrary(search = "") {
         const table = document.getElementById("song-table");
 
+        table.innerHTML = `
+            <tr>
+                <td colspan="3">Loading songs...</td>
+            </tr>
+        `;
+
         try {
-            const response = await fetch("/api/library/songs?limit=100");
+            const params = new URLSearchParams({
+                limit: "100"
+            });
+
+            if (search.trim()) {
+                params.set("search", search.trim());
+            }
+
+            const response = await fetch(
+                `/api/library/songs?${params.toString()}`
+            );
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
@@ -255,6 +272,19 @@
             `;
         }
     }
+
+
+    const searchInput = document.getElementById("song-search");
+
+    let searchTimer;
+
+    searchInput.addEventListener("input", () => {
+        clearTimeout(searchTimer);
+
+        searchTimer = setTimeout(() => {
+            loadLibrary(searchInput.value);
+        }, 300);
+    });
 
 
     loadDashboardStats();
