@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models.song import Song
+from app.models.song_version import SongVersion
 
 
 router = APIRouter(
@@ -42,6 +43,27 @@ def get_songs(
         statement
         .order_by(Song.play_count.desc()) # pylint: disable=no-member
         .limit(limit)
+    )
+
+    return session.exec(statement).all()
+
+@router.get("/songs/{song_id}/versions", response_model=list[SongVersion])
+def get_song_versions(
+    song_id: int,
+    session: Session = Depends(get_session),
+):
+    song = session.get(Song, song_id)
+
+    if song is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Song not found",
+        )
+
+    statement = (
+        select(SongVersion)
+        .where(SongVersion.song_id == song_id)
+        .order_by(SongVersion.play_count.desc())  # pylint: disable=no-member
     )
 
     return session.exec(statement).all()
