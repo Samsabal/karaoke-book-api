@@ -178,6 +178,31 @@
 
 </main>
 <script>
+    async function loadDashboardStats() {
+        try {
+            const response = await fetch("/api/dashboard/stats");
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const stats = await response.json();
+
+            document.getElementById("song-count").textContent =
+                stats.songs.toLocaleString();
+
+            document.getElementById("version-count").textContent =
+                stats.versions.toLocaleString();
+
+            document.getElementById("play-count").textContent =
+                stats.plays.toLocaleString();
+
+        } catch (error) {
+            console.error("Could not load dashboard statistics:", error);
+        }
+    }
+
+
     async function loadLibrary() {
         const table = document.getElementById("song-table");
 
@@ -189,17 +214,6 @@
             }
 
             const songs = await response.json();
-
-            const totalPlays = songs.reduce(
-                (total, song) => total + song.play_count,
-                0
-            );
-
-            document.getElementById("song-count").textContent =
-                songs.length.toLocaleString();
-
-            document.getElementById("play-count").textContent =
-                totalPlays.toLocaleString();
 
             table.innerHTML = "";
 
@@ -230,8 +244,9 @@
                     </tr>
                 `;
             }
+
         } catch (error) {
-            console.error(error);
+            console.error("Could not load karaoke library:", error);
 
             table.innerHTML = `
                 <tr>
@@ -241,6 +256,8 @@
         }
     }
 
+
+    loadDashboardStats();
     loadLibrary();
 </script>
 </body>
