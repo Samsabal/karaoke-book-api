@@ -4,7 +4,9 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
 from app.db import init_db
+from app.api.libary import router as library_router
 
+app.include_router(library_router, prefix="/api")
 
 app = FastAPI(title="Karaoke Book API")
 
