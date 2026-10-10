@@ -63,3 +63,53 @@ def get_validation_stats():
             stats["filename_parsed"] += 1
 
     return stats
+
+@router.get("/unresolved")
+def get_unresolved_songs(
+    limit: int = 100,
+    offset: int = 0,
+):
+    """
+    Return unresolved played VirtualDJ records.
+
+    Highest play counts appear first.
+    """
+
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+
+    records = read_virtualdj_database(str(DATABASE_XML))
+
+    unresolved = []
+
+    for record in records:
+        play_count = record.get("play_count") or 0
+
+        if play_count <= 0:
+            continue
+
+        result = validate_song_metadata(record)
+
+        if result["artist"] and result["title"]:
+            continue
+
+        unresolved.append({
+            "filepath": record.get("filepath"),
+            "filename": record.get("filename"),
+            "tagged_artist": record.get("artist"),
+            "tagged_title": record.get("title"),
+            "play_count": play_count,
+            "metadata_source": result["metadata_source"],
+        })
+
+    unresolved.sort(
+        key=lambda song: song["play_count"],
+        reverse=True,
+    )
+
+    return {
+        "total": len(unresolved),
+        "limit": limit,
+        "offset": offset,
+        "songs": unresolved[offset:offset + limit],
+    }
