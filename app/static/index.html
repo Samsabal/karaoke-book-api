@@ -191,6 +191,47 @@
                 grid-template-columns: 1fr;
             }
         }
+      .unresolved-section {
+          margin-top: 32px;
+      }
+
+      .unresolved-section > p {
+          color: #666;
+      }
+
+      .unresolved-section table {
+          table-layout: fixed;
+      }
+
+      .unresolved-section td {
+          overflow-wrap: anywhere;
+      }
+
+      .unresolved-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 16px;
+          margin-top: 20px;
+      }
+
+      .unresolved-footer button {
+          padding: 10px 18px;
+          border: none;
+          border-radius: 6px;
+          background: #222;
+          color: white;
+          cursor: pointer;
+      }
+
+      .unresolved-footer button:hover {
+          background: #444;
+      }
+
+      .unresolved-footer button:disabled {
+          background: #aaa;
+          cursor: not-allowed;
+      }
     </style>
 </head>
 
@@ -303,6 +344,38 @@
             Loading validation statistics...
         </p>
     </section>
+  <section class="library unresolved-section">
+      <h2>Unresolved Songs</h2>
+
+      <p>
+          Played VirtualDJ files that could not be imported because
+          their artist or title could not be resolved.
+      </p>
+
+      <table>
+          <thead>
+              <tr>
+                  <th>Filename</th>
+                  <th>Tagged Artist</th>
+                  <th>Tagged Title</th>
+                  <th class="plays">Plays</th>
+              </tr>
+          </thead>
+
+          <tbody id="unresolved-table">
+              <tr>
+                  <td colspan="4">Loading unresolved songs...</td>
+              </tr>
+          </tbody>
+      </table>
+
+      <div class="unresolved-footer">
+          <span id="unresolved-count">—</span>
+          <button id="unresolved-more" type="button" disabled>
+              Load more
+          </button>
+      </div>
+  </section>
 </main>
 <script>
     async function loadDashboardStats() {
@@ -526,9 +599,111 @@
             status.textContent = "Could not load validation statistics.";
         }
     }
+    let unresolvedOffset = 0;
+    let unresolvedTotal = 0;
+    let unresolvedLoading = false;
+
+    const unresolvedLimit = 100;
+
+
+    async function loadUnresolvedSongs(reset = false) {
+        if (unresolvedLoading) {
+            return;
+        }
+
+        unresolvedLoading = true;
+
+        const table = document.getElementById("unresolved-table");
+        const button = document.getElementById("unresolved-more");
+        const count = document.getElementById("unresolved-count");
+
+        button.disabled = true;
+
+        if (reset) {
+            unresolvedOffset = 0;
+            table.innerHTML = "";
+        }
+
+        try {
+            const params = new URLSearchParams({
+                limit: unresolvedLimit,
+                offset: unresolvedOffset
+            });
+
+            const response = await fetch(
+                `/api/validation/unresolved?${params.toString()}`
+            );
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            unresolvedTotal = data.total;
+
+            if (unresolvedOffset === 0) {
+                table.innerHTML = "";
+            }
+
+            for (const song of data.songs) {
+                const row = document.createElement("tr");
+
+                const filename = document.createElement("td");
+                filename.textContent = song.filename || "—";
+                filename.title = song.filepath || "";
+
+                const artist = document.createElement("td");
+                artist.textContent = song.tagged_artist || "—";
+
+                const title = document.createElement("td");
+                title.textContent = song.tagged_title || "—";
+
+                const plays = document.createElement("td");
+                plays.className = "plays";
+                plays.textContent = song.play_count.toLocaleString();
+
+                row.appendChild(filename);
+                row.appendChild(artist);
+                row.appendChild(title);
+                row.appendChild(plays);
+
+                table.appendChild(row);
+            }
+
+            unresolvedOffset += data.songs.length;
+
+            count.textContent =
+                `${unresolvedOffset.toLocaleString()} of ` +
+                `${unresolvedTotal.toLocaleString()} unresolved versions`;
+
+            if (unresolvedTotal === 0) {
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="4">No unresolved songs.</td>
+                    </tr>
+                `;
+            }
+
+            button.disabled = unresolvedOffset >= unresolvedTotal;
+
+        } catch (error) {
+            console.error("Could not load unresolved songs:", error);
+
+            count.textContent = "Could not load unresolved songs.";
+
+        } finally {
+            unresolvedLoading = false;
+        }
+    }
+    document.getElementById("unresolved-more").addEventListener(
+        "click",
+        () => loadUnresolvedSongs()
+    );
     loadDashboardStats();
     loadLibrary();
     loadValidationStats();
+    loadUnresolvedSongs(true);
 </script>
 </body>
 </html>
