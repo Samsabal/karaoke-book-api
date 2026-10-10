@@ -232,6 +232,59 @@
           background: #aaa;
           cursor: not-allowed;
       }
+      .correction-panel {
+          margin-top: 24px;
+          padding: 20px;
+          background: #f8f8f8;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+      }
+
+      .correction-panel[hidden] {
+          display: none;
+      }
+
+      .correction-panel label {
+          display: block;
+          margin: 14px 0 6px;
+          font-weight: bold;
+      }
+
+      .correction-panel input {
+          display: block;
+          width: 100%;
+          padding: 12px;
+          border: 1px solid #ccc;
+          border-radius: 6px;
+          font-size: 16px;
+      }
+
+      .correction-actions {
+          display: flex;
+          gap: 12px;
+          margin-top: 20px;
+      }
+
+      .correction-actions button {
+          padding: 10px 18px;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+      }
+
+      #correction-save {
+          background: #222;
+          color: white;
+      }
+
+      #correction-cancel {
+          background: #ddd;
+      }
+
+      #correction-filename {
+          overflow-wrap: anywhere;
+          color: #666;
+      }
     </style>
 </head>
 
@@ -368,7 +421,41 @@
               </tr>
           </tbody>
       </table>
+      <div id="correction-panel" class="correction-panel" hidden>
+          <h3>Resolve song</h3>
 
+          <p id="correction-filename"></p>
+
+          <form id="correction-form">
+              <label for="correction-artist">Artist</label>
+              <input
+                  id="correction-artist"
+                  type="text"
+                  placeholder="Correct artist"
+                  required
+              >
+
+              <label for="correction-title">Title</label>
+              <input
+                  id="correction-title"
+                  type="text"
+                  placeholder="Correct title"
+                  required
+              >
+
+              <div class="correction-actions">
+                  <button type="submit" id="correction-save">
+                      Save correction
+                  </button>
+
+                  <button type="button" id="correction-cancel">
+                      Cancel
+                  </button>
+              </div>
+          </form>
+
+          <p id="correction-status" role="status"></p>
+      </div>
       <div class="unresolved-footer">
           <span id="unresolved-count">—</span>
           <button id="unresolved-more" type="button" disabled>
@@ -414,7 +501,7 @@
 
         try {
             const params = new URLSearchParams({
-                limit: "100"
+                limit: "25"
             });
 
             if (search.trim()) {
@@ -668,6 +755,12 @@
                 row.appendChild(title);
                 row.appendChild(plays);
 
+                row.title = "Click to correct this song";
+
+                row.addEventListener("click", () => {
+                    openCorrectionPanel(song);
+                });
+
                 table.appendChild(row);
             }
 
@@ -696,9 +789,116 @@
             unresolvedLoading = false;
         }
     }
+
     document.getElementById("unresolved-more").addEventListener(
         "click",
         () => loadUnresolvedSongs()
+    );
+
+    let selectedUnresolvedSong = null;
+
+
+    function openCorrectionPanel(song) {
+        selectedUnresolvedSong = song;
+
+        const panel = document.getElementById("correction-panel");
+
+        document.getElementById("correction-filename").textContent =
+            song.filename || song.filepath;
+
+        document.getElementById("correction-artist").value =
+            song.tagged_artist || "";
+
+        document.getElementById("correction-title").value =
+            song.tagged_title || "";
+
+        document.getElementById("correction-status").textContent = "";
+
+        panel.hidden = false;
+        panel.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest"
+        });
+    }
+
+
+    function closeCorrectionPanel() {
+        selectedUnresolvedSong = null;
+        document.getElementById("correction-panel").hidden = true;
+    }
+
+
+    async function saveSongCorrection(event) {
+        event.preventDefault();
+
+        if (!selectedUnresolvedSong) {
+            return;
+        }
+
+        const button = document.getElementById("correction-save");
+        const status = document.getElementById("correction-status");
+
+        const correction = {
+            filepath: selectedUnresolvedSong.filepath,
+            artist: document.getElementById("correction-artist").value.trim(),
+            title: document.getElementById("correction-title").value.trim()
+        };
+
+        if (!correction.artist || !correction.title) {
+            status.textContent = "Artist and title are required.";
+            return;
+        }
+
+        button.disabled = true;
+        status.textContent = "Saving correction...";
+
+        try {
+            const response = await fetch("/api/validation/resolve", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(correction)
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.detail || `HTTP ${response.status}`);
+            }
+
+            status.textContent =
+                `Saved: ${result.artist} — ${result.title}. ` +
+                `${result.version_plays} plays recovered.`;
+
+            // Refresh the library and database totals.
+            await Promise.all([
+                loadDashboardStats(),
+                loadLibrary(
+                    document.getElementById("song-search").value
+                )
+            ]);
+
+            // The XML-based validation list still includes corrected
+            // files until we update the backend to filter them out.
+            // Keep the panel visible so the success message is readable.
+
+        } catch (error) {
+            console.error("Could not save correction:", error);
+            status.textContent = `Error: ${error.message}`;
+
+        } finally {
+            button.disabled = false;
+        }
+    }
+    document.getElementById("correction-form").addEventListener(
+        "submit",
+        saveSongCorrection
+    );
+
+    document.getElementById("correction-cancel").addEventListener(
+        "click",
+        closeCorrectionPanel
     );
     loadDashboardStats();
     loadLibrary();
