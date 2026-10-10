@@ -155,6 +155,42 @@
             display: block;
             margin-bottom: 6px;
         }
+        .validation-section {
+            margin-top: 32px;
+        }
+
+        .validation-section > p {
+            color: #666;
+        }
+
+        .validation-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .validation-stats .card {
+            background: #f8f8f8;
+            box-shadow: none;
+            border: 1px solid #eee;
+        }
+
+        .validation-stats .stat-value {
+            font-size: 26px;
+        }
+
+        @media (max-width: 900px) {
+            .validation-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 500px) {
+            .validation-stats {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 
@@ -215,7 +251,58 @@
           <p>Click a song above to inspect its VirtualDJ file versions.</p>
       </div>
     </section>
+    <section class="library validation-section">
+        <h2>Metadata Validation</h2>
 
+        <p>
+            Overview of played VirtualDJ records and their metadata quality.
+        </p>
+
+        <div class="validation-stats">
+            <div class="card">
+                <div class="stat-value" id="validation-played">—</div>
+                <div class="stat-label">Played versions</div>
+            </div>
+
+            <div class="card">
+                <div class="stat-value" id="validation-resolved">—</div>
+                <div class="stat-label">Resolved versions</div>
+            </div>
+
+            <div class="card">
+                <div class="stat-value" id="validation-unresolved">—</div>
+                <div class="stat-label">Unresolved versions</div>
+            </div>
+
+            <div class="card">
+                <div class="stat-value" id="validation-plays">—</div>
+                <div class="stat-label">Unresolved plays</div>
+            </div>
+        </div>
+
+        <h3>Metadata sources</h3>
+
+        <table>
+            <tbody>
+                <tr>
+                    <td>VirtualDJ tags</td>
+                    <td id="validation-tagged">—</td>
+                </tr>
+                <tr>
+                    <td>Filename parsing</td>
+                    <td id="validation-filename">—</td>
+                </tr>
+                <tr>
+                    <td>Needs validation</td>
+                    <td id="validation-needs-review">—</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p id="validation-status">
+            Loading validation statistics...
+        </p>
+    </section>
 </main>
 <script>
     async function loadDashboardStats() {
@@ -393,8 +480,55 @@
         element.textContent = value ?? "";
         return element.innerHTML;
     }
+    async function loadValidationStats() {
+        const status = document.getElementById("validation-status");
+
+        try {
+            const response = await fetch("/api/validation/stats");
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const stats = await response.json();
+
+            if (stats.error) {
+                throw new Error(stats.error);
+            }
+
+            const format = (value) => value.toLocaleString();
+
+            document.getElementById("validation-played").textContent =
+                format(stats.played_versions);
+
+            document.getElementById("validation-resolved").textContent =
+                format(stats.resolved);
+
+            document.getElementById("validation-unresolved").textContent =
+                format(stats.unresolved);
+
+            document.getElementById("validation-plays").textContent =
+                format(stats.unresolved_plays);
+
+            document.getElementById("validation-tagged").textContent =
+                format(stats.tagged);
+
+            document.getElementById("validation-filename").textContent =
+                format(stats.filename_parsed);
+
+            document.getElementById("validation-needs-review").textContent =
+                format(stats.needs_validation);
+
+            status.textContent = "Validation statistics loaded successfully.";
+
+        } catch (error) {
+            console.error("Could not load validation statistics:", error);
+            status.textContent = "Could not load validation statistics.";
+        }
+    }
     loadDashboardStats();
     loadLibrary();
+    loadValidationStats();
 </script>
 </body>
 </html>
