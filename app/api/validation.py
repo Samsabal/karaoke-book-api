@@ -1,7 +1,12 @@
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
+from app.db import get_session
+from app.models.song import Song
+from app.models.song_version import SongVersion
 from app.services.importer import read_virtualdj_database
 from app.services.validator import validate_song_metadata
 
@@ -13,6 +18,10 @@ router = APIRouter(
 
 DATABASE_XML = Path("database.xml")
 
+class SongCorrection(BaseModel):
+    filepath: str
+    artist: str = Field(min_length=1)
+    title: str = Field(min_length=1)
 
 @router.get("/stats")
 def get_validation_stats():
@@ -112,4 +121,124 @@ def get_unresolved_songs(
         "limit": limit,
         "offset": offset,
         "songs": unresolved[offset:offset + limit],
+    }
+
+@router.post("/resolve")
+def resolve_song(
+    correction: SongCorrection,
+    session: Session = Depends(get_session),
+):
+    """
+    Manually resolve a played VirtualDJ record.
+
+    Reuse an existing logical song when possible,
+    otherwise create a new one.
+    """
+
+    filepath = correction.filepath.strip()
+    artist = correction.artist.strip()
+    title = correction.title.strip()
+
+    if not filepath or not artist or not title:
+        raise HTTPException(
+            status_code=400,
+            detail="Filepath, artist and title are required",
+        )
+
+    # Prevent importing the same physical file twice.
+    existing_version = session.exec(
+        select(SongVersion).where(
+            SongVersion.filepath == filepath
+        )
+    ).first()
+
+    if existing_version:
+        raise HTTPException(
+            status_code=409,
+            detail="This file is already imported",
+        )
+
+    # Locate the original VirtualDJ record.
+    records = read_virtualdj_database(str(DATABASE_XML))
+
+    original = next(
+        (
+            record
+            for record in records
+            if record.get("filepath") == filepath
+        ),
+        None,
+    )
+
+    if original is None:
+        raise HTTPException(
+            status_code=404,
+            detail="File not found in VirtualDJ database",
+        )
+
+    play_count = original.get("play_count") or 0
+
+    if play_count <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Only played files can be resolved for now",
+        )
+
+    # Only manually resolve records that our importer
+    # currently considers unresolved.
+    validation = validate_song_metadata(original)
+
+    if validation["artist"] and validation["title"]:
+        raise HTTPException(
+            status_code=409,
+            detail="This file already has resolvable metadata",
+        )
+
+    normalized_artist = " ".join(artist.casefold().split())
+    normalized_title = " ".join(title.casefold().split())
+
+    song = session.exec(
+        select(Song).where(
+            Song.normalized_artist == normalized_artist,
+            Song.normalized_title == normalized_title,
+        )
+    ).first()
+
+    if song is None:
+        song = Song(
+            artist=artist,
+            title=title,
+            normalized_artist=normalized_artist,
+            normalized_title=normalized_title,
+        )
+        session.add(song)
+        session.flush()
+
+    version = SongVersion(
+        song_id=song.id,
+        filepath=filepath,
+        filename=original.get("filename") or "",
+        file_type=original.get("file_type"),
+        filesize=original.get("filesize"),
+        duration_seconds=original.get("duration_seconds"),
+        play_count=play_count,
+        source="virtualdj",
+    )
+
+    song.play_count += play_count
+
+    session.add(song)
+    session.add(version)
+    session.commit()
+    session.refresh(song)
+    session.refresh(version)
+
+    return {
+        "status": "resolved",
+        "song_id": song.id,
+        "version_id": version.id,
+        "artist": song.artist,
+        "title": song.title,
+        "version_plays": version.play_count,
+        "total_song_plays": song.play_count,
     }
