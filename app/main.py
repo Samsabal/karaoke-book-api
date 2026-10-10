@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from app.db import init_db
 from app.api.libary import router as library_router
 from app.api.dashboard import router as dashboard_router
+from app.api.validation import router as validation_router
 
 app = FastAPI(title="Karaoke Book API")
 
@@ -13,6 +14,7 @@ init_db()
 
 app.include_router(library_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api")
+app.include_router(validation_router, prefix="/api")
 
 STATIC_DIR = Path(__file__).parent / "static"
 
