@@ -24,7 +24,7 @@ class SongCorrection(BaseModel):
     title: str = Field(min_length=1)
 
 @router.get("/stats")
-def get_validation_stats():
+def get_validation_stats(session: Session = Depends(get_session)):
     """
     Analyze played VirtualDJ records and report
     metadata validation statistics.
@@ -36,6 +36,10 @@ def get_validation_stats():
         }
 
     records = read_virtualdj_database(str(DATABASE_XML))
+
+    imported_filepaths = set(
+    session.exec(select(SongVersion.filepath)).all()
+)
 
     played_records = [
         record
@@ -55,6 +59,10 @@ def get_validation_stats():
 
     for record in played_records:
         result = validate_song_metadata(record)
+        if record.get("filepath") in imported_filepaths:
+            if not (result["artist"] and result["title"]):
+                stats["resolved"] += 1
+                continue
 
         if result["artist"] and result["title"]:
             stats["resolved"] += 1
@@ -77,6 +85,7 @@ def get_validation_stats():
 def get_unresolved_songs(
     limit: int = 100,
     offset: int = 0,
+    session: Session = Depends(get_session),
 ):
     """
     Return unresolved played VirtualDJ records.
@@ -89,10 +98,17 @@ def get_unresolved_songs(
 
     records = read_virtualdj_database(str(DATABASE_XML))
 
+    imported_filepaths = set(
+        session.exec(select(SongVersion.filepath)).all()
+    )
+
     unresolved = []
 
     for record in records:
         play_count = record.get("play_count") or 0
+
+        if record.get("filepath") in imported_filepaths:
+            continue
 
         if play_count <= 0:
             continue
