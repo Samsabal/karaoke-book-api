@@ -9,6 +9,7 @@ from app.models.song import Song
 from app.models.song_version import SongVersion
 from app.services.importer import read_virtualdj_database
 from app.services.validator import validate_song_metadata
+from app.services.corrections import load_corrections, save_correction
 
 
 router = APIRouter(
@@ -242,10 +243,49 @@ def resolve_song(
     )
 
     song.play_count += play_count
-
     session.add(song)
     session.add(version)
-    session.commit()
+
+    # Check whether the correction is already backed up.
+    # This also validates that the JSON file is readable.
+    try:
+        existing_corrections = load_corrections()
+    except (OSError, ValueError) as error:
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Could not read manual corrections backup",
+        ) from error
+
+    if filepath in existing_corrections:
+        session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="This file already has a saved manual correction",
+        )
+
+    # Save the correction to JSON before committing SQLite.
+    try:
+        save_correction(filepath, artist, title)
+    except (OSError, ValueError) as error:
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Could not save manual correction backup",
+        ) from error
+
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Database save failed. The correction was preserved "
+                "in manual_corrections.json but may need to be reimported."
+            ),
+        ) from None
+
     session.refresh(song)
     session.refresh(version)
 
