@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 from app.models.song import Song
 from app.models.song_version import SongVersion
 from app.services.validator import validate_song_metadata
+from app.services.corrections import load_corrections
 
 def read_virtualdj_database(database_path: str) -> list[dict]:
     """
@@ -140,12 +141,37 @@ def _to_float(
     except (TypeError, ValueError):
         return default
 
+def resolve_import_metadata(
+    record: dict,
+    corrections: dict[str, dict[str, str]],
+) -> dict:
+    """Use a saved manual correction when one exists."""
+    filepath = record.get("filepath")
+
+    correction = corrections.get(filepath)
+
+    if correction:
+        artist = correction["artist"].strip()
+        title = correction["title"].strip()
+
+        if artist and title:
+            return {
+                "artist": artist,
+                "title": title,
+                "metadata_source": "manual_correction",
+                "needs_validation": False,
+                "confidence": 1.0,
+            }
+
+    return validate_song_metadata(record)
+
 def import_song(
     session: Session,
     song_data: dict,
     commit: bool = True,
     song_cache: dict[tuple[str, str], Song] | None = None,
     filepath_cache: set[str] | None = None,
+    corrections: dict[str, dict[str, str]] | None = None,
 ) -> SongVersion | None:
     """
     Import one VirtualDJ song into the application database.
@@ -177,7 +203,10 @@ def import_song(
         if existing_version:
             return existing_version
 
-    validated = validate_song_metadata(song_data)
+    validated = resolve_import_metadata(
+        song_data,
+        corrections if corrections is not None else load_corrections(),
+    )
 
     artist = validated["artist"]
     title = validated["title"]
@@ -246,6 +275,8 @@ def import_songs(
 
     filepath_cache = set(existing_filepaths)
 
+    corrections = load_corrections()
+
     for song_data in songs:
         processed += 1
 
@@ -259,6 +290,7 @@ def import_songs(
             commit=False,
             song_cache=song_cache,
             filepath_cache=filepath_cache,
+            corrections=corrections,
         )
 
         if result is None:
