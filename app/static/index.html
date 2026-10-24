@@ -286,7 +286,7 @@
           color: #666;
       }
     </style>
-</head>
+<script type="text/javascript" nonce="4dc92c3fdac0462fb18bef92675" src="//local.adguard.org?ts=1792778723840&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_000000004b7081f49a95fef3ae38d06f%26fn%3Dindex_with_suggestions.html%26cd%3Dattachment%26ts%3D497994%26p%3Dfs%26cid%3D1%26sig%3Df1836307ba3a39fdece2ef94d020957da41f9f20b58f135de922e8fdbcc32aa0%26v%3D0&amp;app=chrome.exe&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1"></script><script type="text/javascript" nonce="4dc92c3fdac0462fb18bef92675" src="//local.adguard.org?ts=1792778723840&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script></head>
 
 <body>
 
@@ -798,6 +798,26 @@
     let selectedUnresolvedSong = null;
 
 
+    function suggestMetadataFromFilename(filename) {
+        const name = (filename || "")
+            .replace(/\.[^.]+$/, "")
+            .replace(/^NZ\s*-\s*/i, "")
+            .trim();
+
+        // Only suggest an artist when the filename has a clear separator.
+        const parts = name.split(/\s+-\s+/).map(part => part.trim());
+        if (parts.length < 2 || !parts[0] || !parts[1]) {
+            return { artist: "", title: "" };
+        }
+
+        const title = parts.slice(1).join(" - ")
+            .replace(/\s+-\s+karaoke$/i, "")
+            .trim();
+
+        return { artist: parts[0], title };
+    }
+
+
     function openCorrectionPanel(song) {
         selectedUnresolvedSong = song;
 
@@ -806,11 +826,13 @@
         document.getElementById("correction-filename").textContent =
             song.filename || song.filepath;
 
+        const suggestion = suggestMetadataFromFilename(song.filename);
+
         document.getElementById("correction-artist").value =
-            song.tagged_artist || "";
+            song.tagged_artist || suggestion.artist;
 
         document.getElementById("correction-title").value =
-            song.tagged_title || "";
+            song.tagged_title || suggestion.title;
 
         document.getElementById("correction-status").textContent = "";
 
