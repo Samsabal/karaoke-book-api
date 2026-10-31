@@ -14,3 +14,6 @@ database.xml
 .idea/
 # OS
 Thumbs.db
+
+# Custom ignores
+manual_corrections.json
