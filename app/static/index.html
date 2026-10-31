@@ -893,17 +893,17 @@
                 `Saved: ${result.artist} — ${result.title}. ` +
                 `${result.version_plays} plays recovered.`;
 
-            // Refresh the library and database totals.
+            // Refresh all dashboard data after a successful correction.
             await Promise.all([
                 loadDashboardStats(),
                 loadLibrary(
                     document.getElementById("song-search").value
-                )
+                ),
+                loadValidationStats()
             ]);
 
-            // The XML-based validation list still includes corrected
-            // files until we update the backend to filter them out.
-            // Keep the panel visible so the success message is readable.
+            // Reload unresolved songs so the corrected file disappears.
+            await loadUnresolvedSongs(true);
 
         } catch (error) {
             console.error("Could not save correction:", error);
